@@ -6,62 +6,74 @@
     <title>Image Tagger</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <!-- Heroicons for nice icons -->
+    <!-- Add heroicons for nice UI icons -->
     <script src="https://unpkg.com/@heroicons/vue@2.0.18/24/solid/index.min.js"></script>
 </head>
 <body class="bg-gray-50">
     <div id="app" class="min-h-screen">
-        <!-- Main Layout -->
-        <div class="flex">
+        <div class="flex h-screen">
             <!-- Sidebar -->
-            <div class="w-64 h-screen bg-white border-r border-gray-200 fixed left-0 top-0">
-                <div class="p-4">
-                    <h1 class="text-xl font-bold text-gray-800 mb-4">Image Tagger</h1>
-                    
-                    <!-- Folder Selection Button -->
+            <div class="w-64 bg-white border-r border-gray-200 p-4">
+                <div class="flex items-center justify-between mb-6">
+                    <h1 class="text-xl font-semibold text-gray-800">Image Tagger</h1>
+                </div>
+                
+                <!-- Folder Selection -->
+                <div class="mb-6">
                     <button @click="selectFolder" 
-                            class="w-full bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors mb-4">
+                            class="w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
                         Select Folder
                     </button>
+                </div>
 
-                    <!-- Folders List -->
-                    <div class="space-y-2">
-                        <h2 class="text-sm font-semibold text-gray-600 uppercase tracking-wider">Folders</h2>
-                        <div v-for="folder in folders" :key="folder" 
-                             class="p-2 hover:bg-gray-100 rounded-md cursor-pointer text-gray-700">
-                            📁 {{ folder }}
+                <!-- Folder Tree -->
+                <div class="space-y-2">
+                    <template v-if="folders.length">
+                        <div v-for="folder in folders" 
+                             :key="folder.path" 
+                             class="flex items-center p-2 rounded-md hover:bg-gray-100 cursor-pointer">
+                            <span class="text-gray-600">📁</span>
+                            <span class="ml-2 text-sm text-gray-700">{{ folder.name }}</span>
                         </div>
+                    </template>
+                    <div v-else class="text-sm text-gray-500 text-center">
+                        No folders selected
                     </div>
                 </div>
             </div>
 
             <!-- Main Content -->
-            <div class="flex-1 ml-64">
+            <div class="flex-1 overflow-hidden flex flex-col">
                 <!-- Search Header -->
-                <div class="bg-white border-b border-gray-200 sticky top-0 z-10">
-                    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+                <div class="p-4 border-b border-gray-200 bg-white">
+                    <div class="max-w-4xl mx-auto">
                         <div class="relative">
                             <input type="text" 
                                    v-model="searchQuery"
                                    placeholder="Search images..." 
-                                   class="w-full px-4 py-2 pl-10 pr-4 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                                   class="w-full px-4 py-2 pl-10 pr-4 text-gray-700 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                             <span class="absolute left-3 top-2.5 text-gray-400">🔍</span>
                         </div>
                     </div>
                 </div>
 
                 <!-- Image Grid -->
-                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                        <div v-for="image in images" 
-                             :key="image.id" 
-                             @click="openImageModal(image)"
-                             class="relative group cursor-pointer">
-                            <div class="aspect-square overflow-hidden rounded-lg bg-gray-200">
-                                <img :src="image.url" 
-                                     :alt="image.description"
-                                     class="object-cover w-full h-full transform group-hover:scale-105 transition-transform duration-200">
+                <div class="flex-1 overflow-auto p-6">
+                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                        <template v-if="images.length">
+                            <div v-for="image in images" 
+                                 :key="image.path"
+                                 @click="openImageModal(image)"
+                                 class="relative group cursor-pointer">
+                                <div class="aspect-square overflow-hidden rounded-lg bg-gray-100">
+                                    <img :src="image.url" 
+                                         :alt="image.description"
+                                         class="w-full h-full object-cover group-hover:opacity-75 transition-opacity">
+                                </div>
                             </div>
+                        </template>
+                        <div v-else class="col-span-full text-center text-gray-500 py-10">
+                            No images found
                         </div>
                     </div>
                 </div>
@@ -70,14 +82,14 @@
 
         <!-- Image Modal -->
         <div v-if="selectedImage" 
-             class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
+             class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4"
              @click="selectedImage = null">
             <div class="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden" 
                  @click.stop>
                 <div class="p-4 flex justify-between items-center border-b">
-                    <h3 class="text-lg font-semibold text-gray-900">Image Details</h3>
+                    <h3 class="text-lg font-medium">Image Details</h3>
                     <button @click="selectedImage = null" 
-                            class="text-gray-500 hover:text-gray-700">
+                            class="text-gray-400 hover:text-gray-500">
                         ✕
                     </button>
                 </div>
@@ -85,26 +97,32 @@
                     <div class="flex-1">
                         <img :src="selectedImage.url" 
                              :alt="selectedImage.description"
-                             class="rounded-lg max-h-[60vh] object-contain mx-auto">
+                             class="w-full h-auto rounded-lg">
                     </div>
-                    <div class="w-64 space-y-4">
+                    <div class="w-80 space-y-4">
                         <div>
-                            <h4 class="font-medium text-gray-900">Description</h4>
-                            <p class="text-gray-600">{{ selectedImage.description }}</p>
+                            <h4 class="font-medium mb-2">Image Path</h4>
+                            <p class="text-sm text-gray-600 break-all font-mono">
+                                {{ selectedImage.path }}
+                            </p>
                         </div>
                         <div>
-                            <h4 class="font-medium text-gray-900">Tags</h4>
-                            <div class="flex flex-wrap gap-2 mt-2">
+                            <h4 class="font-medium mb-2">Description</h4>
+                            <p class="text-sm text-gray-600">{{ selectedImage.description }}</p>
+                        </div>
+                        <div>
+                            <h4 class="font-medium mb-2">Tags</h4>
+                            <div class="flex flex-wrap gap-2">
                                 <span v-for="tag in selectedImage.tags" 
                                       :key="tag"
-                                      class="px-2 py-1 bg-gray-100 rounded-full text-sm text-gray-700">
+                                      class="px-2 py-1 text-sm bg-gray-100 rounded-md text-gray-700">
                                     {{ tag }}
                                 </span>
                             </div>
                         </div>
-                        <div v-if="selectedImage.text">
-                            <h4 class="font-medium text-gray-900">Text in Image</h4>
-                            <p class="text-gray-600">{{ selectedImage.text }}</p>
+                        <div>
+                            <h4 class="font-medium mb-2">Text in Image</h4>
+                            <p class="text-sm text-gray-600">{{ selectedImage.textContent }}</p>
                         </div>
                     </div>
                 </div>
@@ -121,11 +139,87 @@
                 const images = ref([])
                 const searchQuery = ref('')
                 const selectedImage = ref(null)
+                const rootHandle = ref(null) // Store the root folder handle
 
-                const selectFolder = () => {
-                    // TODO: Implement folder selection
+                // Function to recursively process directories
+                async function processDirectory(dirHandle, parentPath = '') {
+                    const entries = []
+                    for await (const entry of dirHandle.values()) {
+                        const entryPath = parentPath ? `${parentPath}/${entry.name}` : entry.name
+                        
+                        if (entry.kind === 'directory') {
+                            entries.push({
+                                name: entry.name,
+                                path: entryPath,
+                                handle: entry,
+                                type: 'directory'
+                            })
+                            // Recursively process subdirectories
+                            const subEntries = await processDirectory(entry, entryPath)
+                            entries.push(...subEntries)
+                        } else if (entry.kind === 'file') {
+                            // Only process image files
+                            const isImage = /\.(jpg|jpeg|png|webp)$/i.test(entry.name)
+                            if (isImage) {
+                                entries.push({
+                                    name: entry.name,
+                                    path: entryPath,
+                                    handle: entry,
+                                    type: 'file'
+                                })
+                            }
+                        }
+                    }
+                    return entries
                 }
 
+                // Function to get file URL
+                async function getFileUrl(fileHandle) {
+                    const file = await fileHandle.getFile()
+                    return URL.createObjectURL(file)
+                }
+
+                // Modified selectFolder function
+                const selectFolder = async () => {
+                    try {
+                        // Request permission to access files
+                        rootHandle.value = await window.showDirectoryPicker({
+                            mode: 'read'
+                        })
+                        
+                        // Process the selected directory
+                        const entries = await processDirectory(rootHandle.value)
+                        
+                        // Update folders list (only directories)
+                        folders.value = entries.filter(entry => entry.type === 'directory')
+                        
+                        // Process image files
+                        const imageEntries = entries.filter(entry => entry.type === 'file')
+                        
+                        // Create image objects with URLs
+                        images.value = await Promise.all(
+                            imageEntries.map(async (entry) => ({
+                                name: entry.name,
+                                path: entry.path,
+                                url: await getFileUrl(entry.handle),
+                                description: '', // Will be filled by backend
+                                tags: [], // Will be filled by backend
+                                textContent: '' // Will be filled by backend
+                            }))
+                        )
+
+                        console.log('Selected folder:', rootHandle.value.name)
+                        console.log('Found images:', images.value.length)
+                    } catch (err) {
+                        if (err.name === 'AbortError') {
+                            console.log('User cancelled the selection')
+                        } else {
+                            console.error('Error accessing folder:', err)
+                        }
+                    }
+                }
+
+                // Modified openImageModal function
                 const openImageModal = (image) => {
                     selectedImage.value = image
                 }
@@ -142,4 +236,4 @@
         }).mount('#app')
     </script>
 </body>
-</html> 
+</html>
