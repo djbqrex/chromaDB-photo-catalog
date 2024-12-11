@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import os
 from pathlib import Path
-from typing import List, Dict, Set
+from typing import List, Dict, Set, Optional
 import json
 import logging
 
@@ -30,6 +30,9 @@ class ImageInfo(BaseModel):
     description: str = ""
     tags: List[str] = []
     text_content: str = ""
+
+class SearchRequest(BaseModel):
+    query: str
 
 def get_supported_extensions() -> Set[str]:
     """Return a set of supported image file extensions."""
@@ -100,6 +103,32 @@ def create_image_info(rel_path: str, metadata: Dict) -> ImageInfo:
         text_content=info.get("text_content", "")
     )
 
+def search_images(query: str, metadata: Dict[str, Dict]) -> List[Dict]:
+    """
+    Search images based on query string in description, tags, and text content.
+    Returns list of matching images with their metadata.
+    """
+    if not query:
+        return [{"name": Path(path).name, "path": path, **meta} 
+                for path, meta in metadata.items()]
+    
+    query = query.lower()
+    results = []
+    
+    for path, meta in metadata.items():
+        # Check if query matches any of the text fields
+        if (query in meta.get("description", "").lower() or
+            query in meta.get("text_content", "").lower() or
+            any(query in tag.lower() for tag in meta.get("tags", []))):
+            
+            results.append({
+                "name": Path(path).name,
+                "path": path,
+                **meta
+            })
+    
+    return results
+
 @app.get("/")
 async def read_root():
     return FileResponse("static/index.html")
@@ -145,6 +174,43 @@ async def get_image(path: str, request: FolderRequest = None):
         return FileResponse(full_path)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/search")
+async def search_endpoint(request: SearchRequest):
+    """
+    Search images based on query string.
+    """
+    if not hasattr(app, 'current_folder'):
+        raise HTTPException(status_code=400, detail="No folder selected")
+    
+    try:
+        folder_path = Path(app.current_folder)
+        metadata = load_or_create_metadata(folder_path)
+        
+        # Perform search
+        matching_images = search_images(request.query, metadata)
+        
+        # Convert to ImageInfo objects
+        images = [ImageInfo(
+            name=img["name"],
+            path=img["path"],
+            description=img.get("description", ""),
+            tags=img.get("tags", []),
+            text_content=img.get("text_content", "")
+        ) for img in matching_images]
+        
+        return {"images": images}
+    
+    except Exception as e:
+        logger.error(f"Error searching images: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error searching images: {str(e)}")
+
+@app.post("/refresh")
+async def refresh_images(request: FolderRequest):
+    """
+    Refresh the image list for the current folder.
+    """
+    return await get_images(request)
 
 if __name__ == "__main__":
     import uvicorn

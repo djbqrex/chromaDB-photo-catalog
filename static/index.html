@@ -47,6 +47,10 @@
                                    class="w-full px-4 py-2 pl-10 pr-4 text-gray-700 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                             <span class="absolute left-3 top-2.5 text-gray-400">🔍</span>
                         </div>
+                        <button @click="searchImages" 
+                                class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            Search
+                        </button>
                         <button @click="refreshImages" 
                                 class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center gap-1">
                             <span>↻</span>
@@ -175,9 +179,72 @@
                     selectedImage.value = image
                 }
 
+                const searchImages = async () => {
+                    try {
+                        const response = await fetch('/search', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                query: searchQuery.value
+                            })
+                        })
+
+                        if (!response.ok) {
+                            throw new Error('Failed to search images')
+                        }
+
+                        const data = await response.json()
+                        images.value = data.images.map(img => ({
+                            name: img.name,
+                            path: img.path,
+                            // Use relative URL
+                            url: `/image/${encodeURIComponent(img.path)}`,
+                            description: img.description || '',
+                            tags: img.tags || [],
+                            textContent: img.text_content || ''
+                        }))
+
+                        console.log('Searched images:', images.value.length)
+                    } catch (err) {
+                        console.error('Error searching images:', err)
+                        alert('Error searching images: ' + err.message)
+                    }
+                }
+
                 const refreshImages = async () => {
-                    if (!folderPath.value) return
-                    await openFolder()
+                    try {
+                        const response = await fetch('/refresh', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                folder_path: folderPath.value
+                            })
+                        })
+
+                        if (!response.ok) {
+                            throw new Error('Failed to refresh images')
+                        }
+
+                        const data = await response.json()
+                        images.value = data.images.map(img => ({
+                            name: img.name,
+                            path: img.path,
+                            // Use relative URL
+                            url: `/image/${encodeURIComponent(img.path)}`,
+                            description: img.description || '',
+                            tags: img.tags || [],
+                            textContent: img.text_content || ''
+                        }))
+
+                        console.log('Refreshed images:', images.value.length)
+                    } catch (err) {
+                        console.error('Error refreshing images:', err)
+                        alert('Error refreshing images: ' + err.message)
+                    }
                 }
 
                 return {
@@ -187,6 +254,7 @@
                     folderPath,
                     openFolder,
                     openImageModal,
+                    searchImages,
                     refreshImages
                 }
             }
