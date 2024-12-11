@@ -39,12 +39,19 @@
                     Folder Opened: {{ folderPath }}
                 </p>
                 <div class="max-w-2xl mx-auto">
-                    <div class="relative">
-                        <input type="text" 
-                               v-model="searchQuery"
-                               placeholder="Search images..." 
-                               class="w-full px-4 py-2 pl-10 pr-4 text-gray-700 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <span class="absolute left-3 top-2.5 text-gray-400">🔍</span>
+                    <div class="relative flex gap-2">
+                        <div class="relative flex-1">
+                            <input type="text" 
+                                   v-model="searchQuery"
+                                   placeholder="Search images..." 
+                                   class="w-full px-4 py-2 pl-10 pr-4 text-gray-700 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <span class="absolute left-3 top-2.5 text-gray-400">🔍</span>
+                        </div>
+                        <button @click="refreshImages" 
+                                class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center gap-1">
+                            <span>↻</span>
+                            Refresh
+                        </button>
                     </div>
                 </div>
             </div>
@@ -168,13 +175,19 @@
                     selectedImage.value = image
                 }
 
+                const refreshImages = async () => {
+                    if (!folderPath.value) return
+                    await openFolder()
+                }
+
                 return {
                     images,
                     searchQuery,
                     selectedImage,
                     folderPath,
                     openFolder,
-                    openImageModal
+                    openImageModal,
+                    refreshImages
                 }
             }
         }).mount('#app')

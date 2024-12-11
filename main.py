@@ -5,7 +5,9 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import os
 from pathlib import Path
-from typing import List
+from typing import List, Dict, Set
+import json
+import logging
 
 app = FastAPI()
 
@@ -14,6 +16,10 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # We don't need CORS middleware anymore since frontend and backend are served from same origin
 # app.add_middleware(CORSMiddleware, ...)
+
+# Set up basic logging configuration
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class FolderRequest(BaseModel):
     folder_path: str
@@ -25,6 +31,75 @@ class ImageInfo(BaseModel):
     tags: List[str] = []
     text_content: str = ""
 
+def get_supported_extensions() -> Set[str]:
+    """Return a set of supported image file extensions."""
+    return {'.jpg', '.jpeg', '.png', '.webp'}
+
+def initialize_image_metadata(image_path: str) -> Dict:
+    """Create initial metadata structure for a single image."""
+    return {
+        "description": "",
+        "tags": [],
+        "text_content": ""
+    }
+
+def scan_folder_for_images(folder_path: Path) -> Dict[str, Dict]:
+    """Scan folder recursively and create metadata for all images."""
+    metadata = {}
+    image_extensions = get_supported_extensions()
+    
+    for file_path in folder_path.rglob("*"):
+        if file_path.suffix.lower() in image_extensions:
+            rel_path = str(file_path.relative_to(folder_path))
+            metadata[rel_path] = initialize_image_metadata(rel_path)
+    
+    return metadata
+
+def load_or_create_metadata(folder_path: Path) -> Dict[str, Dict]:
+    """Load existing metadata file or create new one if it doesn't exist.
+    Update metadata by adding new images and removing old records."""
+    metadata_file = folder_path / "image_metadata.json"
+    image_extensions = get_supported_extensions()
+    
+    # Load existing metadata if it exists
+    if metadata_file.exists():
+        with open(metadata_file, 'r') as f:
+            metadata = json.load(f)
+    else:
+        metadata = {}
+
+    # Scan folder for current images
+    current_images = {str(file_path.relative_to(folder_path)): file_path
+                      for file_path in folder_path.rglob("*")
+                      if file_path.suffix.lower() in image_extensions}
+
+    # Add new images to metadata
+    for rel_path in current_images:
+        if rel_path not in metadata:
+            metadata[rel_path] = initialize_image_metadata(rel_path)
+
+    # Remove old records from metadata
+    for rel_path in list(metadata.keys()):
+        if rel_path not in current_images:
+            del metadata[rel_path]
+
+    # Save updated metadata
+    with open(metadata_file, 'w') as f:
+        json.dump(metadata, f, indent=4)
+
+    return metadata
+
+def create_image_info(rel_path: str, metadata: Dict) -> ImageInfo:
+    """Create ImageInfo object from metadata."""
+    info = metadata.get(rel_path, {})
+    return ImageInfo(
+        name=Path(rel_path).name,
+        path=rel_path,
+        description=info.get("description", ""),
+        tags=info.get("tags", []),
+        text_content=info.get("text_content", "")
+    )
+
 @app.get("/")
 async def read_root():
     return FileResponse("static/index.html")
@@ -33,36 +108,24 @@ async def read_root():
 async def get_images(request: FolderRequest):
     folder_path = Path(request.folder_path)
     
-    # Check if folder exists
+    logger.info(f"Received request to open folder: {folder_path}")
+    
     if not folder_path.exists() or not folder_path.is_dir():
+        logger.error(f"Folder not found: {folder_path}")
         raise HTTPException(status_code=404, detail="Folder not found")
     
-    # Store the current folder path
     app.current_folder = str(folder_path)
     
-    # List to store image information
-    images = []
-    
-    # Supported image extensions
-    image_extensions = {'.jpg', '.jpeg', '.png', '.webp'}
-    
-    # Recursively scan for images
-    for file_path in folder_path.rglob("*"):
-        if file_path.suffix.lower() in image_extensions:
-            # Create relative path from the input folder
-            rel_path = str(file_path.relative_to(folder_path))
-            
-            # Create image info
-            image_info = ImageInfo(
-                name=file_path.name,
-                path=rel_path,
-                description="",
-                tags=[],
-                text_content=""
-            )
-            images.append(image_info)
-    
-    return {"images": images}
+    try:
+        metadata = load_or_create_metadata(folder_path)
+        images = [create_image_info(rel_path, metadata) 
+                  for rel_path in metadata.keys()]
+        logger.info(f"Successfully processed folder: {folder_path}")
+        return {"images": images}
+    except Exception as e:
+        logger.error(f"Error processing folder {folder_path}: {str(e)}")
+        raise HTTPException(status_code=500, 
+                            detail=f"Error processing folder: {str(e)}")
 
 @app.get("/image/{path:path}")
 async def get_image(path: str, request: FolderRequest = None):
