@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import List, Dict, Set, Optional
 import json
 import logging
+from image_processor import ImageProcessor, update_image_metadata
 
 app = FastAPI()
 
@@ -30,9 +31,13 @@ class ImageInfo(BaseModel):
     description: str = ""
     tags: List[str] = []
     text_content: str = ""
+    is_processed: bool = False
 
 class SearchRequest(BaseModel):
     query: str
+
+class ProcessImageRequest(BaseModel):
+    image_path: str
 
 def get_supported_extensions() -> Set[str]:
     """Return a set of supported image file extensions."""
@@ -43,7 +48,8 @@ def initialize_image_metadata(image_path: str) -> Dict:
     return {
         "description": "",
         "tags": [],
-        "text_content": ""
+        "text_content": "",
+        "is_processed": False
     }
 
 def scan_folder_for_images(folder_path: Path) -> Dict[str, Dict]:
@@ -100,7 +106,8 @@ def create_image_info(rel_path: str, metadata: Dict) -> ImageInfo:
         path=rel_path,
         description=info.get("description", ""),
         tags=info.get("tags", []),
-        text_content=info.get("text_content", "")
+        text_content=info.get("text_content", ""),
+        is_processed=info.get("is_processed", False)
     )
 
 def search_images(query: str, metadata: Dict[str, Dict]) -> List[Dict]:
@@ -211,6 +218,38 @@ async def refresh_images(request: FolderRequest):
     Refresh the image list for the current folder.
     """
     return await get_images(request)
+
+@app.post("/process-image")
+async def process_image(request: ProcessImageRequest):
+    """
+    Process an image using Ollama to generate tags, description, and extract text.
+    """
+    if not hasattr(app, 'current_folder'):
+        raise HTTPException(status_code=400, detail="No folder selected")
+
+    try:
+        folder_path = Path(app.current_folder)
+        full_image_path = folder_path / request.image_path
+
+        if not full_image_path.exists():
+            raise HTTPException(status_code=404, detail="Image not found")
+
+        # Process the image
+        processor = ImageProcessor()
+        metadata = await processor.process_image(full_image_path)
+
+        # Update metadata file
+        update_image_metadata(folder_path, request.image_path, metadata)
+
+        return {
+            "path": request.image_path,
+            "url": f"/image/{request.image_path}",
+            **metadata
+        }
+
+    except Exception as e:
+        logger.error(f"Error processing image: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error processing image: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

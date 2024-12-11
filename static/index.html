@@ -56,7 +56,29 @@
                             <span>↻</span>
                             Refresh
                         </button>
+                        <button @click="processAllImages" 
+                                :disabled="processingAll"
+                                class="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-green-300 disabled:cursor-not-allowed flex items-center gap-1">
+                            <span>⚡</span>
+                            Process All
+                        </button>
                     </div>
+                </div>
+            </div>
+
+            <!-- Add progress tracking UI -->
+            <div v-if="processingAll" class="max-w-2xl mx-auto mt-4 space-y-2">
+                <div class="flex justify-between text-sm text-gray-600">
+                    <span>Processing: {{ currentImageName }}</span>
+                    <span>{{ processedCount }} / {{ totalToProcess }}</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                    <div class="bg-green-600 h-2.5 rounded-full transition-all duration-300"
+                         :style="{ width: `${progressPercentage}%` }">
+                    </div>
+                </div>
+                <div v-if="failedImages.length" class="text-sm text-red-500">
+                    Failed to process {{ failedImages.length }} images
                 </div>
             </div>
 
@@ -66,7 +88,11 @@
                      :key="image.path"
                      @click="openImageModal(image)"
                      class="relative group cursor-pointer">
-                    <div class="aspect-square overflow-hidden rounded-lg bg-gray-100">
+                    <div class="aspect-square overflow-hidden rounded-lg bg-gray-100"
+                         :class="{
+                             'ring-2 ring-green-500': image.is_processed,
+                             'ring-2 ring-orange-500': !image.is_processed
+                         }">
                         <img :src="image.url" 
                              :alt="image.description"
                              class="w-full h-full object-cover group-hover:opacity-75 transition-opacity">
@@ -95,6 +121,12 @@
                              class="max-w-full max-h-[70vh] w-auto h-auto object-contain rounded-lg">
                     </div>
                     <div class="w-80 space-y-4 overflow-y-auto max-h-[70vh]">
+                        <button v-if="!selectedImage.is_processed"
+                                @click="processImage(selectedImage)"
+                                :disabled="selectedImage.processing"
+                                class="w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-blue-300 disabled:cursor-not-allowed">
+                            {{ selectedImage.processing ? 'Processing...' : 'Process Image' }}
+                        </button>
                         <div>
                             <h4 class="font-medium mb-2">Image Path</h4>
                             <p class="text-sm text-gray-600 break-all font-mono">
@@ -103,21 +135,30 @@
                         </div>
                         <div>
                             <h4 class="font-medium mb-2">Description</h4>
-                            <p class="text-sm text-gray-600">{{ selectedImage.description }}</p>
+                            <p class="text-sm text-gray-600">
+                                {{ selectedImage.description || 'No description available' }}
+                            </p>
                         </div>
                         <div>
                             <h4 class="font-medium mb-2">Tags</h4>
                             <div class="flex flex-wrap gap-2">
-                                <span v-for="tag in selectedImage.tags" 
-                                      :key="tag"
-                                      class="px-2 py-1 text-sm bg-gray-100 rounded-md text-gray-700">
-                                    {{ tag }}
+                                <template v-if="selectedImage.tags && selectedImage.tags.length">
+                                    <span v-for="tag in selectedImage.tags" 
+                                          :key="tag"
+                                          class="px-2 py-1 text-sm bg-gray-100 rounded-md text-gray-700">
+                                        {{ tag }}
+                                    </span>
+                                </template>
+                                <span v-else class="text-sm text-gray-500 italic">
+                                    No tags available
                                 </span>
                             </div>
                         </div>
                         <div>
                             <h4 class="font-medium mb-2">Text in Image</h4>
-                            <p class="text-sm text-gray-600">{{ selectedImage.textContent }}</p>
+                            <p class="text-sm text-gray-600">
+                                {{ selectedImage.textContent || 'No text detected in image' }}
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -126,7 +167,7 @@
     </div>
 
     <script>
-        const { createApp, ref } = Vue
+        const { createApp, ref, computed } = Vue
 
         createApp({
             setup() {
@@ -134,7 +175,12 @@
                 const searchQuery = ref('')
                 const selectedImage = ref(null)
                 const folderPath = ref('')
-
+                const processingAll = ref(false)
+                const currentImageName = ref('')
+                const processedCount = ref(0)
+                const totalToProcess = ref(0)
+                const failedImages = ref([])
+                
                 const openFolder = async () => {
                     if (!folderPath.value) {
                         alert('Please enter a folder path')
@@ -165,7 +211,8 @@
                             url: `/image/${encodeURIComponent(img.path)}`,
                             description: img.description || '',
                             tags: img.tags || [],
-                            textContent: img.text_content || ''
+                            textContent: img.text_content || '',
+                            is_processed: img.is_processed || false
                         }))
 
                         console.log('Found images:', images.value.length)
@@ -203,7 +250,8 @@
                             url: `/image/${encodeURIComponent(img.path)}`,
                             description: img.description || '',
                             tags: img.tags || [],
-                            textContent: img.text_content || ''
+                            textContent: img.text_content || '',
+                            is_processed: img.is_processed || false
                         }))
 
                         console.log('Searched images:', images.value.length)
@@ -237,7 +285,8 @@
                             url: `/image/${encodeURIComponent(img.path)}`,
                             description: img.description || '',
                             tags: img.tags || [],
-                            textContent: img.text_content || ''
+                            textContent: img.text_content || '',
+                            is_processed: img.is_processed || false
                         }))
 
                         console.log('Refreshed images:', images.value.length)
@@ -247,6 +296,82 @@
                     }
                 }
 
+                const processImage = async (image) => {
+                    try {
+                        // Set processing state
+                        image.processing = true
+
+                        const response = await fetch('/process-image', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                image_path: image.path
+                            })
+                        })
+
+                        if (!response.ok) {
+                            throw new Error('Failed to process image')
+                        }
+
+                        const data = await response.json()
+                        
+                        // Update the image with new data
+                        Object.assign(image, {
+                            description: data.description,
+                            tags: data.tags,
+                            textContent: data.text_content,
+                            is_processed: data.is_processed
+                        })
+                        
+                    } catch (err) {
+                        console.error('Error processing image:', err)
+                        alert('Error processing image: ' + err.message)
+                    } finally {
+                        // Clear processing state
+                        image.processing = false
+                    }
+                }
+
+                const processAllImages = async () => {
+                    const unprocessedImages = images.value.filter(img => !img.is_processed)
+                    if (unprocessedImages.length === 0) {
+                        alert('No unprocessed images found!')
+                        return
+                    }
+
+                    processingAll.value = true
+                    currentImageName.value = ''
+                    processedCount.value = 0
+                    totalToProcess.value = unprocessedImages.length
+                    failedImages.value = []
+
+                    for (const image of unprocessedImages) {
+                        try {
+                            currentImageName.value = image.name
+                            await processImage(image)
+                            processedCount.value++
+                        } catch (err) {
+                            failedImages.value.push(image.name)
+                            console.error(`Failed to process ${image.name}:`, err)
+                            // Continue with next image
+                        }
+                    }
+
+                    processingAll.value = false
+                    if (failedImages.value.length > 0) {
+                        alert(`Processing complete with ${failedImages.value.length} failures`)
+                    } else {
+                        alert('All images processed successfully!')
+                    }
+                }
+
+                const progressPercentage = computed(() => {
+                    if (totalToProcess.value === 0) return 0
+                    return Math.round((processedCount.value / totalToProcess.value) * 100)
+                })
+
                 return {
                     images,
                     searchQuery,
@@ -255,7 +380,15 @@
                     openFolder,
                     openImageModal,
                     searchImages,
-                    refreshImages
+                    refreshImages,
+                    processImage,
+                    processingAll,
+                    currentImageName,
+                    processedCount,
+                    totalToProcess,
+                    failedImages,
+                    progressPercentage,
+                    processAllImages
                 }
             }
         }).mount('#app')
