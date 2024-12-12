@@ -39,6 +39,12 @@ class SearchRequest(BaseModel):
 class ProcessImageRequest(BaseModel):
     image_path: str
 
+class UpdateImageMetadata(BaseModel):
+    path: str
+    description: Optional[str] = None
+    tags: Optional[List[str]] = None
+    text_content: Optional[str] = None
+
 def get_supported_extensions() -> Set[str]:
     """Return a set of supported image file extensions."""
     return {'.jpg', '.jpeg', '.png', '.webp'}
@@ -51,6 +57,14 @@ def initialize_image_metadata(image_path: str) -> Dict:
         "text_content": "",
         "is_processed": False
     }
+
+def is_metadata_processed(metadata: Dict) -> bool:
+    """Check if any metadata field is non-empty."""
+    return bool(
+        metadata.get("description") or 
+        metadata.get("tags") or 
+        metadata.get("text_content")
+    )
 
 def scan_folder_for_images(folder_path: Path) -> Dict[str, Dict]:
     """Scan folder recursively and create metadata for all images."""
@@ -86,6 +100,8 @@ def load_or_create_metadata(folder_path: Path) -> Dict[str, Dict]:
     for rel_path in current_images:
         if rel_path not in metadata:
             metadata[rel_path] = initialize_image_metadata(rel_path)
+        # Update is_processed based on metadata content
+        metadata[rel_path]["is_processed"] = is_metadata_processed(metadata[rel_path])
 
     # Remove old records from metadata
     for rel_path in list(metadata.keys()):
@@ -250,6 +266,35 @@ async def process_image(request: ProcessImageRequest):
     except Exception as e:
         logger.error(f"Error processing image: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error processing image: {str(e)}")
+
+@app.post("/update-metadata")
+async def update_metadata(request: UpdateImageMetadata):
+    """Update metadata for a specific image."""
+    if not hasattr(app, 'current_folder'):
+        raise HTTPException(status_code=400, detail="No folder selected")
+    
+    try:
+        folder_path = Path(app.current_folder)
+        metadata_updates = {
+            "description": request.description,
+            "tags": request.tags,
+            "text_content": request.text_content,
+            # Set is_processed based on content
+            "is_processed": bool(
+                request.description or 
+                request.tags or 
+                request.text_content
+            )
+        }
+        
+        # Update the metadata file
+        update_image_metadata(folder_path, request.path, metadata_updates)
+        
+        return {"status": "success"}
+        
+    except Exception as e:
+        logger.error(f"Error updating metadata: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error updating metadata: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

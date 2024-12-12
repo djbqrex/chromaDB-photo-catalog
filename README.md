@@ -45,7 +45,6 @@ This project is an image tagging and searching application that leverages the po
 
     ```bash
     ollama run llama3.2-vision # For 11B model
-    ollama run llama3.2-vision:90b # For 90B model
     ```
 
 ## Usage

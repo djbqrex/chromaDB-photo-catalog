@@ -121,44 +121,78 @@
                              class="max-w-full max-h-[70vh] w-auto h-auto object-contain rounded-lg">
                     </div>
                     <div class="w-80 space-y-4 overflow-y-auto max-h-[70vh]">
-                        <button v-if="!selectedImage.is_processed"
+                        <button v-if="!isProcessed"
                                 @click="processImage(selectedImage)"
                                 :disabled="selectedImage.processing"
                                 class="w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-blue-300 disabled:cursor-not-allowed">
                             {{ selectedImage.processing ? 'Processing...' : 'Process Image' }}
                         </button>
+                        
                         <div>
                             <h4 class="font-medium mb-2">Image Path</h4>
                             <p class="text-sm text-gray-600 break-all font-mono">
                                 {{ selectedImage.path }}
                             </p>
                         </div>
+                        
                         <div>
                             <h4 class="font-medium mb-2">Description</h4>
-                            <p class="text-sm text-gray-600">
-                                {{ selectedImage.description || 'No description available' }}
-                            </p>
+                            <textarea
+                                v-model="selectedImage.description"
+                                class="w-full px-3 py-2 text-sm text-gray-700 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                rows="3"
+                                placeholder="Enter description..."
+                            ></textarea>
                         </div>
+                        
                         <div>
                             <h4 class="font-medium mb-2">Tags</h4>
-                            <div class="flex flex-wrap gap-2">
-                                <template v-if="selectedImage.tags && selectedImage.tags.length">
-                                    <span v-for="tag in selectedImage.tags" 
-                                          :key="tag"
-                                          class="px-2 py-1 text-sm bg-gray-100 rounded-md text-gray-700">
+                            <div class="space-y-2">
+                                <div class="flex flex-wrap gap-2">
+                                    <span v-for="(tag, index) in selectedImage.tags" 
+                                          :key="index"
+                                          class="px-2 py-1 text-sm bg-gray-100 rounded-md text-gray-700 flex items-center gap-1">
                                         {{ tag }}
+                                        <button @click="removeTag(index)" 
+                                                class="text-gray-500 hover:text-red-500">×</button>
                                     </span>
-                                </template>
-                                <span v-else class="text-sm text-gray-500 italic">
-                                    No tags available
-                                </span>
+                                </div>
+                                <div class="flex gap-2">
+                                    <input
+                                        v-model="newTag"
+                                        @keyup.enter="addTag"
+                                        type="text"
+                                        class="flex-1 px-3 py-1 text-sm text-gray-700 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        placeholder="Add new tag..."
+                                    >
+                                    <button @click="addTag"
+                                            class="px-3 py-1 text-sm bg-gray-200 rounded-md hover:bg-gray-300">
+                                        Add
+                                    </button>
+                                </div>
                             </div>
                         </div>
+                        
                         <div>
                             <h4 class="font-medium mb-2">Text in Image</h4>
-                            <p class="text-sm text-gray-600">
-                                {{ selectedImage.textContent || 'No text detected in image' }}
-                            </p>
+                            <textarea
+                                v-model="selectedImage.textContent"
+                                class="w-full px-3 py-2 text-sm text-gray-700 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                rows="3"
+                                placeholder="Enter text content..."
+                            ></textarea>
+                        </div>
+                        
+                        <div class="flex gap-2">
+                            <button @click="saveMetadata"
+                                    :disabled="saving"
+                                    class="flex-1 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-green-300">
+                                {{ saving ? 'Saving...' : 'Save Changes' }}
+                            </button>
+                            <button @click="resetChanges"
+                                    class="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500">
+                                Reset
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -180,6 +214,9 @@
                 const processedCount = ref(0)
                 const totalToProcess = ref(0)
                 const failedImages = ref([])
+                const newTag = ref('')
+                const saving = ref(false)
+                const originalImageData = ref(null)
                 
                 const openFolder = async () => {
                     if (!folderPath.value) {
@@ -212,7 +249,11 @@
                             description: img.description || '',
                             tags: img.tags || [],
                             textContent: img.text_content || '',
-                            is_processed: img.is_processed || false
+                            is_processed: Boolean(
+                                img.description ||
+                                (img.tags && img.tags.length) ||
+                                img.text_content
+                            )
                         }))
 
                         console.log('Found images:', images.value.length)
@@ -223,7 +264,8 @@
                 }
 
                 const openImageModal = (image) => {
-                    selectedImage.value = image
+                    selectedImage.value = JSON.parse(JSON.stringify(image))
+                    originalImageData.value = JSON.parse(JSON.stringify(image))
                 }
 
                 const searchImages = async () => {
@@ -251,7 +293,11 @@
                             description: img.description || '',
                             tags: img.tags || [],
                             textContent: img.text_content || '',
-                            is_processed: img.is_processed || false
+                            is_processed: Boolean(
+                                img.description ||
+                                (img.tags && img.tags.length) ||
+                                img.text_content
+                            )
                         }))
 
                         console.log('Searched images:', images.value.length)
@@ -286,7 +332,11 @@
                             description: img.description || '',
                             tags: img.tags || [],
                             textContent: img.text_content || '',
-                            is_processed: img.is_processed || false
+                            is_processed: Boolean(
+                                img.description ||
+                                (img.tags && img.tags.length) ||
+                                img.text_content
+                            )
                         }))
 
                         console.log('Refreshed images:', images.value.length)
@@ -372,6 +422,83 @@
                     return Math.round((processedCount.value / totalToProcess.value) * 100)
                 })
 
+                const saveMetadata = async () => {
+                    if (!selectedImage.value) return
+                    
+                    saving.value = true
+                    try {
+                        const response = await fetch('/update-metadata', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                path: selectedImage.value.path,
+                                description: selectedImage.value.description,
+                                tags: selectedImage.value.tags,
+                                text_content: selectedImage.value.textContent
+                            })
+                        })
+
+                        if (!response.ok) {
+                            throw new Error('Failed to save metadata')
+                        }
+
+                        // Update the image in the main images array
+                        const index = images.value.findIndex(img => img.path === selectedImage.value.path)
+                        if (index !== -1) {
+                            Object.assign(images.value[index], {
+                                description: selectedImage.value.description,
+                                tags: selectedImage.value.tags,
+                                textContent: selectedImage.value.textContent,
+                                is_processed: Boolean(
+                                    selectedImage.value.description ||
+                                    (selectedImage.value.tags && selectedImage.value.tags.length) ||
+                                    selectedImage.value.textContent
+                                )
+                            })
+                        }
+
+                        // Update original data
+                        originalImageData.value = JSON.parse(JSON.stringify(selectedImage.value))
+                        alert('Changes saved successfully!')
+                    } catch (err) {
+                        console.error('Error saving metadata:', err)
+                        alert('Error saving metadata: ' + err.message)
+                    } finally {
+                        saving.value = false
+                    }
+                }
+
+                const resetChanges = () => {
+                    if (!selectedImage.value || !originalImageData.value) return
+                    Object.assign(selectedImage.value, JSON.parse(JSON.stringify(originalImageData.value)))
+                }
+
+                const addTag = () => {
+                    if (!newTag.value.trim()) return
+                    if (!selectedImage.value.tags) {
+                        selectedImage.value.tags = []
+                    }
+                    if (!selectedImage.value.tags.includes(newTag.value.trim())) {
+                        selectedImage.value.tags.push(newTag.value.trim())
+                    }
+                    newTag.value = ''
+                }
+
+                const removeTag = (index) => {
+                    selectedImage.value.tags.splice(index, 1)
+                }
+
+                const isProcessed = computed(() => {
+                    if (!selectedImage.value) return false
+                    return Boolean(
+                        selectedImage.value.description ||
+                        (selectedImage.value.tags && selectedImage.value.tags.length) ||
+                        selectedImage.value.textContent
+                    )
+                })
+
                 return {
                     images,
                     searchQuery,
@@ -388,7 +515,14 @@
                     totalToProcess,
                     failedImages,
                     progressPercentage,
-                    processAllImages
+                    processAllImages,
+                    newTag,
+                    saving,
+                    saveMetadata,
+                    resetChanges,
+                    addTag,
+                    removeTag,
+                    isProcessed
                 }
             }
         }).mount('#app')
