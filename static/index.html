@@ -12,7 +12,7 @@
 <body class="bg-gray-50">
     <div id="app" class="min-h-screen">
         <!-- Initial Select Folder View -->
-        <div v-if="!images.length" class="h-screen flex items-center justify-center">
+        <div v-if="!folderOpened" class="h-screen flex items-center justify-center">
             <div class="text-center">
                 <h1 class="text-3xl font-semibold text-gray-800 mb-6">Image Tagger</h1>
                 <div class="flex gap-2 items-center">
@@ -20,11 +20,14 @@
                         v-model="folderPath" 
                         type="text" 
                         placeholder="Enter folder path..." 
-                        class="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        :disabled="isLoading"
+                        class="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
                     >
                     <button @click="openFolder" 
-                            class="px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        Open Folder
+                            :disabled="isLoading"
+                            class="px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-blue-300 disabled:cursor-not-allowed flex items-center gap-2">
+                        <span v-if="isLoading" class="inline-block animate-spin">↻</span>
+                        {{ isLoading ? 'Opening...' : 'Open Folder' }}
                     </button>
                 </div>
             </div>
@@ -217,6 +220,8 @@
                 const newTag = ref('')
                 const saving = ref(false)
                 const originalImageData = ref(null)
+                const folderOpened = ref(false)
+                const isLoading = ref(false)
                 
                 const openFolder = async () => {
                     if (!folderPath.value) {
@@ -224,6 +229,7 @@
                         return
                     }
 
+                    isLoading.value = true
                     try {
                         // Use relative URL
                         const response = await fetch('/images', {
@@ -256,10 +262,13 @@
                             )
                         }))
 
+                        folderOpened.value = true
                         console.log('Found images:', images.value.length)
                     } catch (err) {
                         console.error('Error accessing folder:', err)
                         alert('Error accessing folder: ' + err.message)
+                    } finally {
+                        isLoading.value = false
                     }
                 }
 
@@ -285,6 +294,12 @@
                         }
 
                         const data = await response.json()
+                        if (data.images.length === 0) {
+                            // Handle no results gracefully
+                            alert('No images found matching your search criteria')
+                            return
+                        }
+
                         images.value = data.images.map(img => ({
                             name: img.name,
                             path: img.path,
@@ -522,7 +537,9 @@
                     resetChanges,
                     addTag,
                     removeTag,
-                    isProcessed
+                    isProcessed,
+                    folderOpened,
+                    isLoading
                 }
             }
         }).mount('#app')

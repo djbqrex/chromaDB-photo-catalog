@@ -9,6 +9,7 @@ from typing import List, Dict, Set, Optional
 import json
 import logging
 from image_processor import ImageProcessor, update_image_metadata
+from vector_store import VectorStore
 
 app = FastAPI()
 
@@ -19,8 +20,13 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # app.add_middleware(CORSMiddleware, ...)
 
 # Set up basic logging configuration
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
+
+vector_store = VectorStore()
 
 class FolderRequest(BaseModel):
     folder_path: str
@@ -112,6 +118,9 @@ def load_or_create_metadata(folder_path: Path) -> Dict[str, Dict]:
     with open(metadata_file, 'w') as f:
         json.dump(metadata, f, indent=4)
 
+    # Sync with vector store
+    vector_store.sync_with_metadata(folder_path, metadata)
+
     return metadata
 
 def create_image_info(rel_path: str, metadata: Dict) -> ImageInfo:
@@ -128,29 +137,40 @@ def create_image_info(rel_path: str, metadata: Dict) -> ImageInfo:
 
 def search_images(query: str, metadata: Dict[str, Dict]) -> List[Dict]:
     """
-    Search images based on query string in description, tags, and text content.
+    Hybrid search combining full-text and vector search.
     Returns list of matching images with their metadata.
     """
-    if not query:
-        return [{"name": Path(path).name, "path": path, **meta} 
-                for path, meta in metadata.items()]
+    results = set()
     
-    query = query.lower()
-    results = []
+    # Full-text search
+    if query:
+        query = query.lower()
+        for path, meta in metadata.items():
+            # Check if query matches any of the text fields
+            if (query in meta.get("description", "").lower() or
+                query in meta.get("text_content", "").lower() or
+                any(query in tag.lower() for tag in meta.get("tags", []))):
+                
+                results.add(path)
+    else:
+        # If no query, return all images
+        results.update(metadata.keys())
     
-    for path, meta in metadata.items():
-        # Check if query matches any of the text fields
-        if (query in meta.get("description", "").lower() or
-            query in meta.get("text_content", "").lower() or
-            any(query in tag.lower() for tag in meta.get("tags", []))):
-            
-            results.append({
+    # Vector search
+    vector_results = vector_store.search_images(query)
+    results.update(vector_results)
+    
+    # Convert results to list of dicts with metadata
+    search_results = []
+    for path in results:
+        if path in metadata:  # Ensure the path exists in metadata
+            search_results.append({
                 "name": Path(path).name,
                 "path": path,
-                **meta
+                **metadata[path]
             })
     
-    return results
+    return search_results
 
 @app.get("/")
 async def read_root():
@@ -201,16 +221,23 @@ async def get_image(path: str, request: FolderRequest = None):
 @app.post("/search")
 async def search_endpoint(request: SearchRequest):
     """
-    Search images based on query string.
+    Search images using hybrid search (full-text + vector).
     """
     if not hasattr(app, 'current_folder'):
         raise HTTPException(status_code=400, detail="No folder selected")
     
     try:
         folder_path = Path(app.current_folder)
-        metadata = load_or_create_metadata(folder_path)
         
-        # Perform search
+        # Load current metadata
+        metadata_file = folder_path / "image_metadata.json"
+        if not metadata_file.exists():
+            raise HTTPException(status_code=400, detail="No metadata file found")
+            
+        with open(metadata_file, 'r') as f:
+            metadata = json.load(f)
+        
+        # Perform hybrid search
         matching_images = search_images(request.query, metadata)
         
         # Convert to ImageInfo objects
@@ -219,7 +246,8 @@ async def search_endpoint(request: SearchRequest):
             path=img["path"],
             description=img.get("description", ""),
             tags=img.get("tags", []),
-            text_content=img.get("text_content", "")
+            text_content=img.get("text_content", ""),
+            is_processed=img.get("is_processed", False)
         ) for img in matching_images]
         
         return {"images": images}
@@ -256,6 +284,9 @@ async def process_image(request: ProcessImageRequest):
 
         # Update metadata file
         update_image_metadata(folder_path, request.image_path, metadata)
+        
+        # Update vector store
+        vector_store.add_or_update_image(request.image_path, metadata)
 
         return {
             "path": request.image_path,
@@ -289,6 +320,9 @@ async def update_metadata(request: UpdateImageMetadata):
         
         # Update the metadata file
         update_image_metadata(folder_path, request.path, metadata_updates)
+        
+        # Update vector store
+        vector_store.add_or_update_image(request.path, metadata_updates)
         
         return {"status": "success"}
         
