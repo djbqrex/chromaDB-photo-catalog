@@ -260,13 +260,6 @@ async def search_endpoint(request: SearchRequest):
         logger.error(f"Error searching images: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error searching images: {str(e)}")
 
-@app.post("/refresh")
-async def refresh_images(request: FolderRequest):
-    """
-    Refresh the image list for the current folder.
-    """
-    return await get_images(request)
-
 @app.post("/process-image")
 async def process_image(request: ProcessImageRequest):
     """

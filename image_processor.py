@@ -110,7 +110,10 @@ class ImageProcessor:
                 messages=[{
                     'role': 'user',
                     'content': prompt,
-                    'images': [image_path]
+                    'images': [image_path],
+                    'options': {
+                        'num_gpu': 41
+                    }
                 }],
                 format=format_schema
             )
