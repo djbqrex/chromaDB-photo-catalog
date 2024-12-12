@@ -37,13 +37,22 @@ class ImageProcessor:
             image_path_str = str(image_path)
 
             # Get structured responses using Pydantic models
+            logger.info(f"Getting description for image: {image_path}")
             description_response = await self._get_description(image_path_str)
+            logger.debug(f"Received description: {description_response.description}")
             
             # Get tags
+            logger.info(f"Getting tags for image: {image_path}")
             tags_response = await self._get_tags(image_path_str)
+            logger.debug(f"Received tags: {tags_response.tags}")
             
             # Get text content
+            logger.info(f"Getting text content for image: {image_path}")
             text_response = await self._get_text_content(image_path_str)
+            logger.debug(
+                f"Received text content - has_text: {text_response.has_text}, "
+                f"content: {text_response.text_content if text_response.has_text else 'None'}"
+            )
 
             return {
                 "description": description_response.description,

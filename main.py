@@ -118,8 +118,8 @@ def load_or_create_metadata(folder_path: Path) -> Dict[str, Dict]:
     with open(metadata_file, 'w') as f:
         json.dump(metadata, f, indent=4)
 
-    # Sync with vector store
-    vector_store.sync_with_metadata(folder_path, metadata)
+    # Sync with vector store using the instance-specific vector store
+    app.vector_store.sync_with_metadata(folder_path, metadata)
 
     return metadata
 
@@ -135,7 +135,7 @@ def create_image_info(rel_path: str, metadata: Dict) -> ImageInfo:
         is_processed=info.get("is_processed", False)
     )
 
-def search_images(query: str, metadata: Dict[str, Dict]) -> List[Dict]:
+def search_images(query: str, metadata: Dict[str, Dict], vector_store: VectorStore) -> List[Dict]:
     """
     Hybrid search combining full-text and vector search.
     Returns list of matching images with their metadata.
@@ -189,6 +189,10 @@ async def get_images(request: FolderRequest):
     app.current_folder = str(folder_path)
     
     try:
+        # Initialize vector store in the selected folder
+        vector_store_path = folder_path / ".vectordb"
+        app.vector_store = VectorStore(persist_directory=str(vector_store_path))
+        
         metadata = load_or_create_metadata(folder_path)
         images = [create_image_info(rel_path, metadata) 
                   for rel_path in metadata.keys()]
@@ -223,7 +227,7 @@ async def search_endpoint(request: SearchRequest):
     """
     Search images using hybrid search (full-text + vector).
     """
-    if not hasattr(app, 'current_folder'):
+    if not hasattr(app, 'current_folder') or not hasattr(app, 'vector_store'):
         raise HTTPException(status_code=400, detail="No folder selected")
     
     try:
@@ -237,8 +241,8 @@ async def search_endpoint(request: SearchRequest):
         with open(metadata_file, 'r') as f:
             metadata = json.load(f)
         
-        # Perform hybrid search
-        matching_images = search_images(request.query, metadata)
+        # Use the instance-specific vector store
+        matching_images = search_images(request.query, metadata, app.vector_store)
         
         # Convert to ImageInfo objects
         images = [ImageInfo(
@@ -301,7 +305,7 @@ async def process_image(request: ProcessImageRequest):
 @app.post("/update-metadata")
 async def update_metadata(request: UpdateImageMetadata):
     """Update metadata for a specific image."""
-    if not hasattr(app, 'current_folder'):
+    if not hasattr(app, 'current_folder') or not hasattr(app, 'vector_store'):
         raise HTTPException(status_code=400, detail="No folder selected")
     
     try:
@@ -310,7 +314,6 @@ async def update_metadata(request: UpdateImageMetadata):
             "description": request.description,
             "tags": request.tags,
             "text_content": request.text_content,
-            # Set is_processed based on content
             "is_processed": bool(
                 request.description or 
                 request.tags or 
@@ -321,8 +324,8 @@ async def update_metadata(request: UpdateImageMetadata):
         # Update the metadata file
         update_image_metadata(folder_path, request.path, metadata_updates)
         
-        # Update vector store
-        vector_store.add_or_update_image(request.path, metadata_updates)
+        # Update vector store using the instance-specific vector store
+        app.vector_store.add_or_update_image(request.path, metadata_updates)
         
         return {"status": "success"}
         
@@ -330,7 +333,23 @@ async def update_metadata(request: UpdateImageMetadata):
         logger.error(f"Error updating metadata: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error updating metadata: {str(e)}")
 
+@app.get("/check-init-status")
+async def check_init_status():
+    """Check if this is the first time initialization."""
+    try:
+        if not hasattr(app, 'current_folder'):
+            raise HTTPException(status_code=400, detail="No folder selected")
+            
+        # Check if the vector store directory exists in the selected folder
+        folder_path = Path(app.current_folder)
+        vector_store_path = folder_path / ".vectordb"
+        needs_init = not vector_store_path.exists()
+        return {"needs_init": needs_init}
+    except Exception as e:
+        logger.error(f"Error checking init status: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000) 
+    uvicorn.run(app, host="127.0.0.1", port=8000) 
     # or in command line: uvicorn main:app --host 127.0.0.1 --port 8000 --reload

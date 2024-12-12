@@ -1,5 +1,6 @@
 import chromadb
 from chromadb.utils import embedding_functions
+from chromadb.config import Settings
 from pathlib import Path
 from typing import Dict, List, Optional
 import logging
@@ -9,7 +10,7 @@ logger = logging.getLogger(__name__)
 class VectorStore:
     def __init__(self, persist_directory: str = ".vectordb"):
         """Initialize ChromaDB client with persistence."""
-        self.client = chromadb.PersistentClient(path=persist_directory)
+        self.client = chromadb.PersistentClient(path=persist_directory, settings=Settings(anonymized_telemetry=False))
         
         # Use ChromaDB's default embedding function all-MiniLM-L6-v2
         self.embedding_function = embedding_functions.DefaultEmbeddingFunction()
