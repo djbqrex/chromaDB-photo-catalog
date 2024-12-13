@@ -3,8 +3,8 @@
 ## What the app does
 - On first open, it will prompt users to choose a folder.(Done)
 - It will scan the folder and subfolder for images (png/jpg/jpeg) and initialize an index record (if not initialized in this folder, we can probably use a JSON as initialization record? This can also be used for tracking new/deleted images.)(Done)
-- It will then create taggings of the images with Llama3.2 Vision with Ollama when "Start Tagging". It will create tags of elements/styles, a short description of the image, text within the images. The image path, tags, description, text within the images will be saved to a vector database for easier retrieval later.(Done, need to modify prompts)
-- Users can then query the images with natural language. During querying, it will use full-text search and vector search to find the most relevant images.(Full-text search is done, need to add vector search)
+- It will then create taggings of the images with Llama3.2 Vision with Ollama when "Start Tagging". It will create tags of elements/styles, a short description of the image, text within the images. The image path, tags, description, text within the images will be saved to a vector database for easier retrieval later.(Done)
+- Users can then query the images with natural language. During querying, it will use full-text search and vector search to find the most relevant images.(Done)
 - Users can browse the images on the UI, on click thumbnail, modal opens with image and its tags, description, and text within the image.(Done)
 
 ## UI
@@ -14,7 +14,7 @@
 
 ## Backend
 - Local server with Python FastAPI.
-- Ollama for running Llama model:
+- Ollama for running Llama3.2 Vision model:
 ```
 import ollama
 
