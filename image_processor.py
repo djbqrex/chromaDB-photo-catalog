@@ -77,7 +77,7 @@ class ImageProcessor:
     async def _get_tags(self, image_path: str) -> ImageTags:
         """Get structured tags for the image."""
         response = await self._query_ollama(
-            "List 5-10 relevant tags for this image. Include both objects and artistic style.",
+            "List 5-10 relevant tags for this image. Include both objects, artistic style, type of image, color, etc.",
             image_path,
             ImageTags.model_json_schema()
         )
@@ -90,7 +90,7 @@ class ImageProcessor:
         If has_text is False, text_content will be ignored.
         """
         response = await self._query_ollama(
-            "Analyze this image for text content. Respond with JSON where 'has_text' is true only if there is actual text visible in the image, and 'text_content' contains the extracted text. If no text is visible, set 'has_text' to false and 'text_content' to empty string.",
+            "Identify if there is visible text in the image. Respond with JSON where 'has_text' is true only if there is actual text visible in the image, and 'text_content' contains the extracted text. If no text is visible, set 'has_text' to false and 'text_content' to empty string.",
             image_path,
             ImageText.model_json_schema()
         )
