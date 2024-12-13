@@ -7,8 +7,8 @@ This project is an image tagging and searching application that leverages the po
 -   **Folder Selection and Image Discovery**: On first launch, the application prompts users to select a folder by inputting the full path of a folder. It then recursively scans this folder and its subfolders to discover images (supports `png`, `jpg`, `jpeg`, and `webp` formats).
 -   **Image Indexing**: Initializes a JSON-based index to track images within the selected folder. This index is updated dynamically to reflect new or deleted images.
 -   **Intelligent Tagging**: Utilizes Llama 3.2 Vision with Ollama to generate descriptive tags for each image. This includes identifying elements/styles, creating a short description, and extracting any text present within the images.
--   **Vector Database Storage**: Stores image metadata (path, tags, description, text content) in a ChromaDB vector database for efficient retrieval. *Note: Vector search integration is planned for future updates.*
--   **Natural Language Search**: Enables users to search images using natural language queries. The application performs a full-text search on the stored metadata to find relevant images. *Note: Vector search integration is planned for future updates.*
+-   **Vector Database Storage**: Stores image metadata (path, tags, description, text content) in a ChromaDB vector database for efficient vector search.
+-   **Natural Language Search**: Enables users to search images using natural language queries. The application performs a hybrid full-text search and vector search on the stored metadata to find relevant images.
 -   **User Interface**: Provides a user-friendly web interface built with Tailwind CSS and Vue3 for browsing and interacting with images.
     -   **Image Grid**: Displays images in a responsive grid layout.
     -   **Image Modal**: On clicking a thumbnail, a modal opens, displaying the image along with its tags, description, and extracted text.
@@ -41,10 +41,10 @@ This project is an image tagging and searching application that leverages the po
 
     Download the installer from [here](https://github.com/ollama/ollama) and install Ollama.
 
-    Pull and run the Llama 3.2 Vision model:
+    Pull the Llama 3.2 Vision model:
 
     ```bash
-    ollama run llama3.2-vision # For 11B model
+    ollama pull llama3.2-vision # For 11B model
     ```
 
 ## Usage
@@ -65,6 +65,8 @@ This project is an image tagging and searching application that leverages the po
 
     Enter the path to the folder containing your images and click "Open Folder". The application will scan the folder and display the found images.
 
+    The first time you open a folder, the application will scan through all the images and process them and initialize the vector database (ChromaDB might also download an embedding model). This might take a while depending on your network speed and the number of images in the folder.
+
 4. **Process images:**
 
     -   **Process All**: Click the "Process All" button to start tagging all unprocessed images. The progress will be displayed on the screen.
@@ -76,26 +78,25 @@ This project is an image tagging and searching application that leverages the po
 
 6. **Refresh images:**
 
-    Click the "Refresh" button to rescan the folder and update the image list.
+    When new images are added to the folder, you can click the "Refresh" button to rescan the folder and update the image list.
 
 ## Project Structure
 
 -   `main.py`: Contains the FastAPI backend logic, including API endpoints for image processing, searching, and serving static files.
 -   `image_processor.py`: Handles image processing using Ollama and updates the metadata.
 -   `index.html`: The main HTML file for the frontend user interface with Tailwind CSS and Vue3.
+-   `vector_db.py`: Handles the vector database (ChromaDB) operations.
 
 ## API Endpoints
 
--   `GET /`: Serves the main `index.html` page.
--   `POST /images`: Accepts a folder path and returns a list of images found in that folder.
--   `GET /image/{path:path}`: Serves an image file from the selected folder.
--   `POST /search`: Accepts a search query and returns a list of matching images.
--   `POST /refresh`: Refreshes the image list for the current folder.
--   `POST /process-image`: Processes a single image to generate tags, description, and extract text.
-
-## Future Enhancements
-
--   **Vector Search**: Integrate vector search capabilities using ChromaDB to improve search accuracy and relevance.
+- `GET /`: Serves the main web interface
+- `POST /images`: Scans a folder for images and returns their metadata
+- `GET /image/{path}`: Retrieves a specific image file
+- `POST /search`: Performs hybrid (full-text + vector) search on images
+- `POST /refresh`: Rescans the current folder for new or removed images
+- `POST /process-image`: Processes a single image using Ollama to generate tags, description, and extract text
+- `POST /update-metadata`: Updates metadata for a specific image
+- `GET /check-init-status`: Checks if the vector database needs initialization
 
 ## Contributing
 
@@ -104,3 +105,9 @@ Contributions are welcome! Please feel free to submit issues or pull requests to
 ## License
 
 This project is licensed under the [MIT License](LICENSE) - see the LICENSE file for details.
+
+## Other Repos That You Might Be Interested In
+- [Ollama](https://github.com/ollama/ollama) - Local LLM server
+- [ChromaDB](https://github.com/chroma-core/chroma) - Vector database
+- [Local-LLM-Comparison-Colab-UI](https://github.com/Troyanovsky/Local-LLM-Comparison-Colab-UI): A collection of Colab Notebooks for comparing local LLMs.
+- [Building-with-GenAI](https://github.com/Troyanovsky/Building-with-GenAI): A collection of projects and tutorials for building with GenAI.
