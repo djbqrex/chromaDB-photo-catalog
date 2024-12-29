@@ -26,8 +26,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-vector_store = VectorStore()
-
 class FolderRequest(BaseModel):
     folder_path: str
 
@@ -135,7 +133,7 @@ def create_image_info(rel_path: str, metadata: Dict) -> ImageInfo:
         is_processed=info.get("is_processed", False)
     )
 
-def search_images(query: str, metadata: Dict[str, Dict], vector_store: VectorStore) -> List[Dict]:
+def search_images(query: str, metadata: Dict[str, Dict]) -> List[Dict]:
     """
     Hybrid search combining full-text and vector search.
     Returns list of matching images with their metadata.
@@ -157,7 +155,7 @@ def search_images(query: str, metadata: Dict[str, Dict], vector_store: VectorSto
         results.update(metadata.keys())
     
     # Vector search
-    vector_results = vector_store.search_images(query)
+    vector_results = app.vector_store.search_images(query)
     results.update(vector_results)
     
     # Convert results to list of dicts with metadata
@@ -242,7 +240,7 @@ async def search_endpoint(request: SearchRequest):
             metadata = json.load(f)
         
         # Use the instance-specific vector store
-        matching_images = search_images(request.query, metadata, app.vector_store)
+        matching_images = search_images(request.query, metadata)
         
         # Convert to ImageInfo objects
         images = [ImageInfo(
@@ -265,7 +263,7 @@ async def process_image(request: ProcessImageRequest):
     """
     Process an image using Ollama to generate tags, description, and extract text.
     """
-    if not hasattr(app, 'current_folder'):
+    if not hasattr(app, 'current_folder') or not hasattr(app, 'vector_store'):
         raise HTTPException(status_code=400, detail="No folder selected")
 
     try:
@@ -283,7 +281,7 @@ async def process_image(request: ProcessImageRequest):
         update_image_metadata(folder_path, request.image_path, metadata)
         
         # Update vector store
-        vector_store.add_or_update_image(request.image_path, metadata)
+        app.vector_store.add_or_update_image(request.image_path, metadata)
 
         return {
             "path": request.image_path,
