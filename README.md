@@ -2,6 +2,8 @@
 
 This project is an image tagging and searching application that leverages the power of open-source local multimodal LLM like Llama 3.2 Vision and vector database like ChromaDB to provide a seamless image management experience.
 
+This project has an accompanying blog post [here](https://medium.com/design-bootcamp/local-ai-vision-for-your-photos-build-ai-image-tagger-with-llama-vision-and-chromadb-e3b1e0eeac43).
+
 ## Features
 
 -   **Folder Selection and Image Discovery**: On first launch, the application prompts users to select a folder by inputting the full path of a folder. It then recursively scans this folder and its subfolders to discover images (supports `png`, `jpg`, `jpeg`, and `webp` formats).
