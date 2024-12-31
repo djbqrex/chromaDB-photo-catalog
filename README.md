@@ -100,6 +100,11 @@ This project has an accompanying blog post [here](https://medium.com/design-boot
 - `POST /update-metadata`: Updates metadata for a specific image
 - `GET /check-init-status`: Checks if the vector database needs initialization
 
+## TODO
+
+-   [ ] Scan image metadata to add to context for generating descriptions/tags (Idea from Redditor u/JohnnyLovesData/)
+-   [ ] OCR with tesseract to extract text from images (or hybrid with Llama 3.2 Vision) (Idea from Redditor u/SocialNetworky/)
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit issues or pull requests to improve the project.
@@ -111,5 +116,5 @@ This project is licensed under the [MIT License](LICENSE) - see the LICENSE file
 ## Other Repos That You Might Be Interested In
 - [Ollama](https://github.com/ollama/ollama) - Local LLM server
 - [ChromaDB](https://github.com/chroma-core/chroma) - Vector database
-- [Local-LLM-Comparison-Colab-UI](https://github.com/Troyanovsky/Local-LLM-Comparison-Colab-UI): A collection of Colab Notebooks for comparing local LLMs.
+- [Local-LLM-Comparison-Colab-UI](https://github.com/Troyanovsky/Local-LLM-Comparison-Colab-UI): A collection of Colab Notebooks for running and comparing local LLMs.
 - [Building-with-GenAI](https://github.com/Troyanovsky/Building-with-GenAI): A collection of projects and tutorials for building with GenAI.
