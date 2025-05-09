@@ -121,7 +121,7 @@ class VectorStore:
             # Query the collection
             results = self.collection.query(
                 query_texts=[query],
-                n_results=limit,
+                n_results=limit*2,
                 include=['documents', 'metadatas', 'distances']  # Add distances to results
             )
             
