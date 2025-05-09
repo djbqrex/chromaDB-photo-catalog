@@ -21,6 +21,7 @@
                             v-model="folderPath" 
                             type="text" 
                             placeholder="Enter folder path..." 
+                            @keydown.enter="openFolder"
                             :disabled="isLoading"
                             class="px-4 py-2 border border-gray-300 rounded-md w-80 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
                         >
@@ -55,6 +56,7 @@
                         <div class="relative flex-1">
                             <input type="text" 
                                    v-model="searchQuery"
+                                   @keydown.enter="searchImages"
                                    placeholder="Search images..." 
                                    class="w-full px-4 py-2 pl-10 pr-4 text-gray-700 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                             <span class="absolute left-3 top-2.5 text-gray-400">🔍</span>
@@ -210,6 +212,11 @@
                 </div>
             </div>
         </div>
+
+        <!-- Growler Component -->
+        <div v-if="showGrowler" class="fixed top-0 right-0 m-4 text-sm text-white bg-orange-600 p-2 rounded-md">
+            {{ growlerMessage }}
+        </div>
     </div>
 
     <script>
@@ -232,7 +239,19 @@
                 const folderOpened = ref(false)
                 const isLoading = ref(false)
                 const loadingStatus = ref('')
+                const showGrowler = ref(false);
+                const growlerMessage = ref('');
                 
+
+                //Growler code
+                const showGrowlerMessage = (message) => {
+                    growlerMessage.value = message;
+                    showGrowler.value = true;
+                    setTimeout(() => {
+                        showGrowler.value = false;
+                    }, 3000); // Hide after 3 seconds
+                };
+
                 const openFolder = async () => {
                     if (!folderPath.value) {
                         alert('Please enter a folder path')
@@ -280,10 +299,12 @@
                                 (img.tags && img.tags.length) ||
                                 img.text_content
                             )
-                        }))
+                        })).slice(0, 10)
 
                         folderOpened.value = true
-                        console.log('Found images:', images.value.length)
+                        console.log('Found images:', data.images.length)
+                        //Show growler with image count
+                        showGrowlerMessage(`Found ${data.images.length} images in the folder`)
                     } catch (err) {
                         console.error('Error accessing folder:', err)
                         alert('Error accessing folder: ' + err.message)
@@ -337,6 +358,7 @@
                         }))
 
                         console.log('Searched images:', images.value.length)
+                        showGrowlerMessage(`Found ${images.value.length} images matching "${searchQuery.value}"`)
                     } catch (err) {
                         console.error('Error searching images:', err)
                         alert('Error searching images: ' + err.message)
@@ -498,7 +520,8 @@
 
                         // Update original data
                         originalImageData.value = JSON.parse(JSON.stringify(selectedImage.value))
-                        alert('Changes saved successfully!')
+                        showGrowlerMessage(`Changes saved for ${selectedImage.value.name}`)
+                        selectedImage.value = null
                     } catch (err) {
                         console.error('Error saving metadata:', err)
                         alert('Error saving metadata: ' + err.message)
@@ -562,7 +585,9 @@
                     isProcessed,
                     folderOpened,
                     isLoading,
-                    loadingStatus
+                    loadingStatus,
+                    showGrowler,
+                    growlerMessage
                 }
             }
         }).mount('#app')
