@@ -212,6 +212,11 @@
                 </div>
             </div>
         </div>
+
+        <!-- Growler Component -->
+        <div v-if="showGrowler" class="fixed top-0 right-0 m-4 text-sm text-white bg-orange-600 p-2 rounded-md">
+            {{ growlerMessage }}
+        </div>
     </div>
 
     <script>
@@ -234,7 +239,19 @@
                 const folderOpened = ref(false)
                 const isLoading = ref(false)
                 const loadingStatus = ref('')
+                const showGrowler = ref(false);
+                const growlerMessage = ref('');
                 
+
+                //Growler code
+                const showGrowlerMessage = (message) => {
+                    growlerMessage.value = message;
+                    showGrowler.value = true;
+                    setTimeout(() => {
+                        showGrowler.value = false;
+                    }, 3000); // Hide after 3 seconds
+                };
+
                 const openFolder = async () => {
                     if (!folderPath.value) {
                         alert('Please enter a folder path')
@@ -564,7 +581,9 @@
                     isProcessed,
                     folderOpened,
                     isLoading,
-                    loadingStatus
+                    loadingStatus,
+                    showGrowler,
+                    growlerMessage
                 }
             }
         }).mount('#app')
