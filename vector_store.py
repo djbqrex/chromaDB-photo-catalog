@@ -131,7 +131,7 @@ class VectorStore:
                 
                 # Filter and collect results with distance < 1.1
                 for image_id, distance in zip(results['ids'][0], results['distances'][0]):
-                    if distance < 1.1:
+                    if distance < 1.5:
                         filtered_results.append(image_id)
                         logger.debug(f"  Included: {image_id} (distance: {distance:.4f})")
                     else:
