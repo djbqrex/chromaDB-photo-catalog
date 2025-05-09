@@ -520,7 +520,8 @@
 
                         // Update original data
                         originalImageData.value = JSON.parse(JSON.stringify(selectedImage.value))
-                        alert('Changes saved successfully!')
+                        showGrowlerMessage(`Changes saved for ${selectedImage.value.name}`)
+                        selectedImage.value = null
                     } catch (err) {
                         console.error('Error saving metadata:', err)
                         alert('Error saving metadata: ' + err.message)
