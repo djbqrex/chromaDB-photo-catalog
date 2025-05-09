@@ -15,6 +15,8 @@ app = FastAPI()
 
 # Mount static files (your frontend)
 app.mount("/static", StaticFiles(directory="static"), name="static")
+app.current_folder = ""
+app.images = []
 
 # We don't need CORS middleware anymore since frontend and backend are served from same origin
 # app.add_middleware(CORSMiddleware, ...)
@@ -176,6 +178,11 @@ async def read_root():
 
 @app.post("/images")
 async def get_images(request: FolderRequest):
+    # If folder request is the same as the current one, return existing images
+    if app.current_folder == str(request.folder_path):
+        # Return existing images from the current folder
+        return {"images": app.images}
+
     folder_path = Path(request.folder_path)
     
     logger.info(f"Received request to open folder: {folder_path}")
@@ -192,10 +199,10 @@ async def get_images(request: FolderRequest):
         app.vector_store = VectorStore(persist_directory=str(vector_store_path))
         
         metadata = load_or_create_metadata(folder_path)
-        images = [create_image_info(rel_path, metadata) 
+        app.images = [create_image_info(rel_path, metadata) 
                   for rel_path in metadata.keys()]
         logger.info(f"Successfully processed folder: {folder_path}")
-        return {"images": images}
+        return {"images": app.images}
     except Exception as e:
         logger.error(f"Error processing folder {folder_path}: {str(e)}")
         raise HTTPException(status_code=500, 
@@ -342,5 +349,5 @@ async def check_init_status():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8000) 
+    uvicorn.run(app, host="0.0.0.0", port=8001) 
     # or in command line: uvicorn main:app --host 127.0.0.1 --port 8000 --reload
