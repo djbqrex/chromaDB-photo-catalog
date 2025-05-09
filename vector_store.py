@@ -111,7 +111,7 @@ class VectorStore:
             logger.error(f"Error retrieving metadata from vector store: {str(e)}")
             return None 
 
-    def search_images(self, query: str, limit: int = 5) -> List[str]:
+    def search_images(self, query: str, limit: int = 500) -> List[str]:
         """
         Search for images using vector similarity.
         Returns a list of image paths ordered by relevance.
