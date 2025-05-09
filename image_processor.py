@@ -4,6 +4,9 @@ import logging
 from typing import Dict, List, Optional
 import json
 from pydantic import BaseModel
+import asyncio
+import httpx
+import base64
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +35,15 @@ class ImageProcessor:
             # Ensure image path exists
             if not image_path.exists():
                 raise FileNotFoundError(f"Image not found: {image_path}")
+            
+            # Skip small files under 40kb
+            if image_path.stat().st_size < 40 * 1024:
+                return {
+                    "description": "Image too small to process.",
+                    "tags": [],
+                    "text_content": "",
+                    "is_processed": True
+                }
 
             # Convert image path to string for Ollama
             image_path_str = str(image_path)
@@ -103,24 +115,49 @@ class ImageProcessor:
         return result
 
     async def _query_ollama(self, prompt: str, image_path: str, format_schema: dict) -> str:
-        """Send a query to Ollama with an image and expect structured output."""
+        """Send a POST request to Ollama with a base64-encoded image and expect structured output."""
         try:
-            response = ollama.chat(
-                model=self.model_name,
-                messages=[{
-                    'role': 'user',
-                    'content': prompt,
-                    'images': [image_path],
-                    'options': {
-                        'num_gpu': 41
+            # Read and encode the image in base64
+            with open(image_path, "rb") as image_file:
+                image_bytes = image_file.read()
+                image_b64 = base64.b64encode(image_bytes).decode("utf-8")
+
+            # Construct the JSON payload
+            payload = {
+                "model": self.model_name,
+                "stream": False,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": prompt
+                    },
+                    {
+                        "role": "user",
+                        "images": [image_b64]
                     }
-                }],
-                format=format_schema
-            )
-            return response['message']['content']
+                ],
+                "format": format_schema
+            }
+
+            # Send the POST request with a timeout
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                response = await client.post(
+                    url="http://localhost:11434/api/chat",
+                    json=payload
+                )
+                response.raise_for_status()
+                return response.json()['message']['content']
+
+        except httpx.TimeoutException:
+            logger.error("Ollama query timed out after 30 seconds")
+            raise
         except Exception as e:
             logger.error(f"Ollama query failed: {str(e)}")
             raise
+
+
+
+
 
 def update_image_metadata(folder_path: Path, image_path: str, metadata: Dict) -> None:
     """Update the metadata file with new image processing results."""
