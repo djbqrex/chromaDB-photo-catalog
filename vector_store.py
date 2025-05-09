@@ -111,7 +111,7 @@ class VectorStore:
             logger.error(f"Error retrieving metadata from vector store: {str(e)}")
             return None 
 
-    def search_images(self, query: str, limit: int = 5) -> List[str]:
+    def search_images(self, query: str, limit: int = 500) -> List[str]:
         """
         Search for images using vector similarity.
         Returns a list of image paths ordered by relevance.
@@ -121,7 +121,7 @@ class VectorStore:
             # Query the collection
             results = self.collection.query(
                 query_texts=[query],
-                n_results=limit,
+                n_results=limit*2,
                 include=['documents', 'metadatas', 'distances']  # Add distances to results
             )
             
@@ -131,7 +131,7 @@ class VectorStore:
                 
                 # Filter and collect results with distance < 1.1
                 for image_id, distance in zip(results['ids'][0], results['distances'][0]):
-                    if distance < 1.1:
+                    if distance < 1.5:
                         filtered_results.append(image_id)
                         logger.debug(f"  Included: {image_id} (distance: {distance:.4f})")
                     else:
