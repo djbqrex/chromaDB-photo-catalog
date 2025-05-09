@@ -299,10 +299,10 @@
                                 (img.tags && img.tags.length) ||
                                 img.text_content
                             )
-                        }))
+                        })).slice(0, 10)
 
                         folderOpened.value = true
-                        console.log('Found images:', images.value.length)
+                        console.log('Found images:', data.images.length)
                         //Show growler with image count
                         showGrowlerMessage(`Found ${data.images.length} images in the folder`)
                     } catch (err) {
