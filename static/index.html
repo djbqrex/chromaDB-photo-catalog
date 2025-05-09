@@ -303,6 +303,8 @@
 
                         folderOpened.value = true
                         console.log('Found images:', images.value.length)
+                        //Show growler with image count
+                        showGrowlerMessage(`Found ${data.images.length} images in the folder`)
                     } catch (err) {
                         console.error('Error accessing folder:', err)
                         alert('Error accessing folder: ' + err.message)
@@ -356,6 +358,7 @@
                         }))
 
                         console.log('Searched images:', images.value.length)
+                        showGrowlerMessage(`Found ${images.value.length} images matching "${searchQuery.value}"`)
                     } catch (err) {
                         console.error('Error searching images:', err)
                         alert('Error searching images: ' + err.message)
